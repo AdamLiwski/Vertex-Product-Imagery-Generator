@@ -13,11 +13,11 @@ from google.api_core import exceptions as api_exceptions
 
 # --- Stałe Konfiguracyjne ---
 # ZMIANA #1: Używamy szybszego modelu, który ma lepszy domyślny limit (2 RPM)
-IMAGE_GENERATION_MODEL = "imagen-3.0-generate-002" 
+IMAGE_GENERATION_MODEL = "gemini-2.5-flash-image" 
 GCP_LOCATION = "us-central1" # Lokalizacja dla Vertex AI
 MAX_RETRIES = 5
 WAIT_TIME_SECONDS = 30 # Skracamy czas oczekiwania po błędzie Quota, bo używamy własnych delayów
-INTER_TASK_DELAY = 60 # NOWOŚĆ: Opóźnienie (w sekundach) pomiędzy zadaniami generacji
+INTER_TASK_DELAY = 10 # NOWOŚĆ: Opóźnienie (w sekundach) pomiędzy zadaniami generacji
 INPUT_DIR = "zdjecia_do_przerobienia"
 OUTPUT_DIR = "gotowe"
 IMAGE_FILENAME = "BAF485800_0.png" # Pamiętaj, żeby upewnić się, że to jest .png lub .jpg!
@@ -63,6 +63,7 @@ def load_image_from_file(file_path):
 def generate_and_save_image(model, prompt, initial_image, output_path):
     """
     Generuje obraz, obsługując błędy, w tym błąd limitu (quota), i zapisuje wynik.
+    Obsługuje nową strukturę odpowiedzi dla modeli Gemini 2.5 Flash.
     """
     attempt = 0
     while attempt < MAX_RETRIES:
@@ -71,49 +72,58 @@ def generate_and_save_image(model, prompt, initial_image, output_path):
         print(f"  > Prompt: '{prompt}'")
 
         try:
-            # Wysłanie żądania do modelu
-            response = model.generate_content(
-                [initial_image, prompt]
-            )
+            response = model.generate_content([initial_image, prompt])
 
-            # Walidacja odpowiedzi dla modelu Imagen
-            if not response.generated_images:
-                print(f"⚠️ API nie zwróciło obrazu w próbie {attempt}. Odpowiedź: {response.text[:50]}...")
+            # 🔍 Obsługa różnych formatów odpowiedzi
+            image_bytes = None
+
+            # Gemini 2.5 Flash — inline_data
+            try:
+                image_bytes = response.candidates[0].content.parts[0].inline_data.data
+            except AttributeError:
+                pass
+
+            # Imagen fallback — generated_images
+            if not image_bytes:
+                try:
+                    image_bytes = response.generated_images[0].image.image_bytes
+                except AttributeError:
+                    pass
+
+            if not image_bytes:
+                print(f"⚠️ Brak danych obrazu w odpowiedzi. Próba {attempt}.")
                 time.sleep(5)
                 continue
 
-            # WYODRĘBNIANIE DANYCH
-            image_data = response.generated_images[0].image.image_bytes
-            
-            result_image_pil = Image.open(BytesIO(image_data))
+            result_image_pil = Image.open(BytesIO(image_bytes))
             result_image_pil.save(output_path)
-            
+
             print(f"✅ Pomyślnie zapisano obraz w: {output_path}")
-            
             return VertexImage.load_from_file(output_path)
 
         except api_exceptions.ResourceExhausted as e:
             error_msg = e.message.lower()
             if "base model" in error_msg:
-                 print("\n" + "="*80)
-                 print("❌ KRYTYCZNY BŁĄD LIMITU: Przekroczony stały limit Quota na poziomie konta/projektu.")
-                 print("   >>> JEDYNYM TRWAŁYM ROZWIĄZANIEM jest złożenie wniosku o zwiększenie limitu. <<<")
-                 print(f"   Szczegóły: {e.message}")
-                 print("="*80 + "\n")
-                 return None
-            
-            # Błąd limitu, który można obejść ponawianiem
+                print("\n" + "="*80)
+                print("❌ KRYTYCZNY BŁĄD LIMITU: Przekroczony stały limit Quota na poziomie konta/projektu.")
+                print("   >>> JEDYNYM TRWAŁYM ROZWIĄZANIEM jest złożenie wniosku o zwiększenie limitu. <<<")
+                print(f"   Szczegóły: {e.message}")
+                print("="*80 + "\n")
+                return None
+
             print(f"⚠️ Limit quota przekroczony. Czekam {WAIT_TIME_SECONDS} sekund i ponawiam próbę...")
             print(f"   Szczegóły błędu: {e.message}")
             time.sleep(WAIT_TIME_SECONDS)
             continue
-        
+
         except Exception as e:
             print(f"❌ Wystąpił nieoczekiwany błąd w próbie {attempt}: {type(e).__name__} - {e}")
             return None
 
     print(f"❌ Nie udało się wygenerować obrazu '{os.path.basename(output_path)}' po maksymalnej liczbie prób.")
     return None
+
+
 
 
 def main():
@@ -159,6 +169,7 @@ def main():
         "Popraw to zdjęcie produktowe. Wzmocnij kolory, popraw cienie, aby produkt wyglądał atrakcyjniej. "
         "Ważne: zachowaj oryginalny, niezmieniony kształt produktu. "
         "Umieść finalny produkt na idealnie białym tle (#FFFFFF), zgodnie ze standardami dla sklepów internetowych."
+        "**Zwróć wynik jako obraz. Nie odpowiadaj tekstem.**"
     )
     # Zmieniamy rozszerzenie wyjściowe na .jpg (częstsze w e-commerce)
     path_1 = os.path.join(OUTPUT_DIR, f"{sku}_0.jpg")
@@ -175,11 +186,13 @@ def main():
 
     # ------------------- ZADANIE 2: Scena Lifestylowa 1 - Dziecko Zza Balonu -------------------
     prompt_2 = (
-        "Na podstawie tego poprawionego zdjęcia balonu, stwórz nową scenę. "
-        "Dodaj uśmiechnięte dziecko (w wieku 4-6 lat), które trzyma ten balon i wychyla zza niego głowę. "
-        "Ważne: zachowaj oryginalny, niezmieniony kształt balonu. "
-        "Całość umieść na idealnie białym tle (#FFFFFF)."
-    )
+    "Na podstawie tego poprawionego zdjęcia balonu, stwórz nową scenę. "
+    "Dodaj uśmiechnięte dziecko (w wieku 4–6 lat), które trzyma balon obiema rękami i wychyla się zza niego. "
+    "Upewnij się, że dziecko jest widoczne w całości — z nogami, stopami i naturalną postawą. "
+    "Zachowaj oryginalny, niezmieniony kształt balonu. "
+    "Całość umieść na idealnie białym tle (#FFFFFF), zgodnie ze standardami zdjęć produktowych. "
+    "Zwróć wynik jako obraz. Nie odpowiadaj tekstem."
+)
     path_2 = os.path.join(OUTPUT_DIR, f"{sku}_1.jpg")
     image_2 = generate_and_save_image(model, prompt_2, improved_image_vertex, path_2)
     
