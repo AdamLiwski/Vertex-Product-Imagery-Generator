@@ -1,31 +1,20 @@
-# ------------------------------------------------------------------
-# Wymagane Wykluczenia
-# ------------------------------------------------------------------
-
-# 1. Środowisko Wirtualne (venv)
-# Zapobiega dodawaniu setek małych plików środowiska Pythona.
+# Środowisko wirtualne
 venv/
+.venv/
 
-# 2. Wrażliwe Dane Konfiguracyjne
-# To jest najważniejsze! Zapobiega ujawnieniu Twojego Project ID lub kluczy.
+# Pliki konfiguracyjne z sekretami
 .env
 service_account_key.json
-*.json
 
-# 3. Cache i Logi
+# Pliki cache i logi
 __pycache__/
 *.log
 
-# ------------------------------------------------------------------
-# Wykluczenia Specyficzne dla Projektu
-# ------------------------------------------------------------------
+# Foldery z danymi użytkownika (wejście i wyjście)
+/input/
+/output/
+/demo/
 
-# 4. Dane Wejściowe i Wyjściowe
-# Zazwyczaj nie chcemy trzymać w repozytorium dużych plików graficznych.
-zdjecia_do_przerobienia/
-gotowe/
-
-# 5. Stare / Testowe Skrypty
-# Pliki, które są już niepotrzebne, ale były w folderze.
-Skrypt Modyfikujący Zdjęcia (Wersja Testowa API).py
-test.py
+# Pliki generowane przez edytory
+.vscode/
+.idea/

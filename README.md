@@ -1,27 +1,29 @@
-# 🎈 Vertex Product Imagery Generator
+# Vertex AI Product Imagery Generator
 
-Automatyczny pipeline do generowania zdjęć produktowych z wykorzystaniem AI, zoptymalizowany pod kątem e-commerce. Projekt wykorzystuje modele generatywne Google Vertex AI (Gemini 2.5 Flash Image) do tworzenia scen lifestylowych na bazie zdjęć produktów — np. balonów — zgodnie ze standardami sklepów internetowych.
-
----
-
-## 🚀 Funkcje
-
-- ✅ Obsługa wejścia multimodalnego: obraz + tekst
-- 🎨 Generacja scen lifestylowych z dziećmi, aranżacjami urodzinowymi i białym tłem
-- 🔁 Retry logic przy błędach quota i API
-- 🧠 Obsługa różnych typów odpowiedzi: `inline_data`, `generated_images`
-- 📂 Automatyczne przetwarzanie folderów wejściowych i wyjściowych
-- 📸 Zgodność z wymaganiami zdjęć produktowych (tło #FFFFFF, zachowanie kształtu)
+Automated e-commerce product image generation and editing using Google Vertex AI's Imagen 3.0 model. This Python solution transforms basic product photos into professional studio shots and engaging lifestyle scenes (Image-to-Image), featuring robust quota and error handling for production readiness.
 
 ---
 
-## 🧠 Model GenAI
+### Key Features
 
-- **Używany model:** `gemini-2.5-flash-image`  
-- **Region:** `us-central1`  
-- **Obsługiwane typy odpowiedzi:** `inline_data.data` (nowy format), `generated_images` (fallback)
+- **Automated Workflow:** Processes all images from an `input` folder and saves the results to an `output` folder.
+- **Multi-Step Processing:** Implements a configurable, multi-step pipeline for image generation (e.g., studio shot, lifestyle scenes).
+- **Intelligent Theming:** Includes a step to analyze the product's theme and dynamically generate a context-aware lifestyle image.
+- **Robust Error Handling:** Features a retry mechanism and handles common API errors like `ResourceExhausted` (quota limits).
+- **Flexible Configuration:** All paths, model names, and prompts are centralized in a `config.py` file for easy customization.
+
+### Technology Stack
+
+- **Python 3**
+- **Google Cloud Vertex AI:** (`gemini-1.5-flash-image` model)
+- **Pillow (PIL):** For local image manipulation.
+- **python-dotenv:** For secure management of environment variables.
 
 ---
 
-## 📦 Struktura folderów
+### How to Use
 
+**1. Clone the repository:**
+```bash
+git clone [https://github.com/AdamLiwski/Vertex-Product-Imagery-Generator.git](https://github.com/AdamLiwski/Vertex-Product-Imagery-Generator.git)
+cd Vertex-Product-Imagery-Generator
