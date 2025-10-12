@@ -10,10 +10,10 @@ service_account_key.json
 __pycache__/
 *.log
 
-# Foldery z danymi użytkownika (wejście i wyjście)
+# Foldery z danymi użytkownika (wejście, wyjście, demo)
+# Te foldery nie powinny być częścią repozytorium kodu
 /input/
 /output/
-/demo/
 
 # Pliki generowane przez edytory
 .vscode/
