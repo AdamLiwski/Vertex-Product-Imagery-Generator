@@ -2,53 +2,47 @@
 
 # --- Konfiguracja Połączenia z Google Cloud ---
 GCP_LOCATION = "us-central1"
-# ZMIANA: Model z Twojego skryptu, który działa.
-IMAGE_GENERATION_MODEL = "gemini-2.5-flash-image"
+# NOWOŚĆ: Definiujemy dwa osobne modele
+ANALYSIS_MODEL_NAME = "gemini-2.5-flash"      # Nasz "Analityk" do tekstu i JSON
+IMAGE_GENERATION_MODEL = "gemini-2.5-flash-image" # Nasz "Malarz" do obrazów
 
 # --- Konfiguracja Procesu ---
 MAX_RETRIES = 5
-WAIT_TIME_SECONDS = 30  # Czas oczekiwania po błędzie Quota
-INTER_TASK_DELAY = 10   # Opóźnienie pomiędzy zadaniami generacji
+WAIT_TIME_SECONDS = 30
+INTER_TASK_DELAY = 10
 
 # --- Konfiguracja Ścieżek ---
 INPUT_DIR = "input"
 OUTPUT_DIR = "output"
 
 # --- Paczka Promptów ---
-# Tutaj definiujemy wszystkie kroki przetwarzania
-PROMPTS = {
-    "step_1_studio": (
-        "Popraw to zdjęcie produktowe. Wzmocnij kolory, popraw cienie, aby produkt wyglądał atrakcyjniej. "
-        "Ważne: zachowaj oryginalny, niezmieniony kształt produktu. "
-        "Umieść finalny produkt na idealnie białym tle (#FFFFFF), zgodnie ze standardami dla sklepów internetowych. "
-        "**Zwróć wynik jako obraz. Nie odpowiadaj tekstem.**"
+PROMPT_TEMPLATES = {
+    "analysis": (
+        "Analyze the product in this image. Respond in JSON format with two keys: "
+        "'product_description' (a 3-5 word description, e.g., 'luxury men's Rolex watch') and "
+        "'suggested_style' (1-3 keywords for a photoshoot theme, e.g., 'elegant, luxurious, professional')."
     ),
-    "step_2_lifestyle_child": (
-        "Na podstawie tego poprawionego zdjęcia balonu, stwórz nową scenę. "
-        "Dodaj uśmiechnięte dziecko (w wieku 4–6 lat), które trzyma balon obiema rękami i wychyla się zza niego. "
-        "Upewnij się, że dziecko jest widoczne w całości — z nogami, stopami i naturalną postawą. "
-        "Zachowaj oryginalny, niezmieniony kształt balonu. "
-        "Całość umieść na idealnie białym tle (#FFFFFF), zgodnie ze standardami zdjęć produktowych. "
-        "Zwróć wynik jako obraz. Nie odpowiadaj tekstem."
+    "enhancement": (
+        "Re-imagine this product photo to be of perfect e-commerce quality. "
+        "Correct any awkward angles to present a clear, professional front-facing view of the product. "
+        "Enhance colors and lighting. Place the final, unchanged product on a pure white background (#FFFFFF). "
+        "**Return only the image.**"
     ),
-    "step_3_lifestyle_party": (
-        "Na podstawie tego poprawionego zdjęcia balonu, stwórz piękną, lifestylową aranżację. "
-        "Balon powinien być napełniony helem. Uśmiechnięte dziecko trzyma go na wstążce. "
-        "Ważne: zachowaj oryginalny, niezmieniony kształt balonu. "
-        "Tło powinno być jasne, estetyczne i pasujące do motywu urodzinowego, "
-        "na przykład w pokoju dziecięcym podczas przyjęcia."
+    "studio_with_props": (
+        "Create a professional studio photograph of the '{product_description}'. "
+        "Place it on a simple, elegant prop suitable for this type of product (e.g., a stand for a watch, a pedestal for a sculpture, a stylish surface for electronics). "
+        "The background should be clean and minimalist. Use commercial studio lighting. "
+        "The style should be: {suggested_style}. **Return only the image.**"
     ),
-    # Prompt do analizy motywu dla kroku 4
-    "step_4a_analyze": (
-        "Analyze this image of a foil balloon. In 1-5 words, describe the main character or theme. "
-        "Examples: 'cute deer', 'dinosaur', 'blue number three', 'red heart'."
+    "lifestyle_in_use": (
+        "Create a realistic lifestyle photo showing the '{product_description}' in practical use. "
+        "A person appropriate for the product should be interacting with it naturally (e.g., a man wearing the watch, a person driving the car, a family watching the TV). "
+        "The setting should be authentic and match the style: {suggested_style}. **Return only the image.**"
     ),
-    # Szablon promptu dla inteligentnej aranżacji
-    "step_4b_themed_template": (
-        "Based on the improved balloon photo, create a stunning, high-quality lifestyle arrangement. "
-        "The main theme of the balloon is '{theme}'. The entire scene should match this theme. "
-        "For example, if the theme is 'cute deer', the setting should be a forest party; if 'dinosaur', a prehistoric party. "
-        "Show the balloon as the central element of the decoration. Maintain the original shape and design of the balloon. "
-        "The overall atmosphere should be joyful and magical. **Return only the image.**"
+    "lifestyle_alternative": (
+        "Create a second, different lifestyle photo of the '{product_description}'. "
+        "Showcase the product in a beautiful, aspirational setting that reflects the style: {suggested_style}. "
+        "The product should be the clear focus of the image. Use creative composition and natural lighting. "
+        "**Return only the image.**"
     )
 }
