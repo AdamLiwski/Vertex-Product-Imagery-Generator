@@ -18,8 +18,8 @@ OUTPUT_DIR = "output"
 # Tutaj definiujemy wszystkie kroki przetwarzania
 PROMPTS = {
     "step_1_studio": (
-        "Popraw to zdjęcie produktowe. Wzmocnij kolory, popraw cienie, aby produkt wyglądał atrakcyjniej. "
-        "Ważne: zachowaj oryginalny, niezmieniony kształt produktu. "
+        "Popraw to zdjęcie produktowe. Popraw cienie, oraz światło, aby produkt wyglądał atrakcyjniej. "
+        "Ważne: zachowaj oryginalny, niezmieniony kolor i kształt produktu. "
         "Umieść finalny produkt na idealnie białym tle (#FFFFFF), zgodnie ze standardami dla sklepów internetowych. "
         "**Zwróć wynik jako obraz. Nie odpowiadaj tekstem.**"
     ),
