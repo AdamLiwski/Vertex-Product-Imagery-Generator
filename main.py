@@ -1,9 +1,10 @@
 # main.py
 import os
 import time
+# POPRAWKA: Dodajemy brakujący import biblioteki pandas
+import pandas as pd
 
 from src.config import *
-# ZMIANA: Importujemy nową funkcję
 from src.file_handler import find_csv_files, load_data_from_csv, load_image_from_url
 from src.image_processor import setup_vertex_ai_client, prepare_prompt, generate_image_with_reference
 
@@ -16,10 +17,13 @@ def process_csv_file(model, csv_path):
     # --- ETAP 0: Przygotowanie danych ---
     print("\n[PRZYGOTOWANIE] Filtrowanie i sortowanie balonów-cyfr (0-9)...")
     df_numbers = df[df['produkt_nazwa'].str.contains("Balon foliowy w kształcie cyfry", na=False)].copy()
-    if 'cyfry' not in df_numbers.columns: # Dodatkowe zabezpieczenie
-        df_numbers['digit'] = df_numbers['produkt_nazwa'].str.extract(r'cyfry (\d)').astype(int)
-    else:
+    
+    # Zabezpieczenie na wypadek, gdyby kolumna z cyfrą nazywała się inaczej
+    if 'cyfry' in df.columns and pd.api.types.is_numeric_dtype(df_numbers['cyfry']):
         df_numbers['digit'] = df_numbers['cyfry'].astype(int)
+    else:
+        df_numbers['digit'] = df_numbers['produkt_nazwa'].str.extract(r'cyfry (\d)').astype(int)
+
     df_numbers = df_numbers.sort_values('digit').reset_index(drop=True)
 
     if len(df_numbers) < 1:
