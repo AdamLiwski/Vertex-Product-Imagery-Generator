@@ -2,58 +2,60 @@
 
 # --- Konfiguracja Połączenia z Google Cloud ---
 GCP_LOCATION = "us-central1"
-# ZMIANA: Używamy dwóch najnowszych, wyspecjalizowanych modeli Flash
-TEXT_MODEL_NAME = "gemini-2.5-flash"  # Model do analizy i zadań tekstowych
-IMAGE_MODEL_NAME = "gemini-2.5-flash-image" # Model zoptymalizowany do generowania obrazów
+IMAGE_MODEL_NAME = "gemini-2.5-flash-image"
 
 # --- Konfiguracja Procesu ---
 MAX_RETRIES = 3
-WAIT_TIME_SECONDS = 20
-# Usunęliśmy IMAGES_PER_PRODUCT, ponieważ teraz liczba zdjęć zależy od liczby promptów
+WAIT_TIME_SECONDS = 20 # Dajemy modelowi trochę więcej czasu na złożone zadania
 
 # --- Konfiguracja Ścieżek ---
-CSV_FILE_PATH = "lista zdjec do poprawienia csv.csv"
-OUTPUT_DIR = "output" # Folder na wygenerowane obrazy
+CSV_FILE_PATH = "czarny.csv"
+OUTPUT_DIR = "output_czarny_zestaw" # Nowy, dedykowany folder wyjściowy
 
-# --- Słowa Kluczowe do Analizy Nazwy Produktu ---
-# Ta logika pozostaje, aby dynamicznie określać grupę docelową w promptach lifestyle
-KIDS_KEYWORDS = ["dziecka", "roczek", "chrzest", "urodziny chłopca", "urodziny dziewczynki", "baby shower", "dla dzieci"]
-ADULT_KEYWORDS = ["panieński", "kawalerski", "18-stka", "sylwester", "dla dorosłych", "wódki", "alkohol", "impreza firmowa"]
+# --- Słowa Kluczowe do Analizy Stylu ---
+CHILDREN_KEYWORDS = ['roczek', 'urodziny dziecka', 'chrzest']
+ADULT_KEYWORDS = ['panieński', 'kawalerski', '18-stka', 'osiemnastka', 'rocznica']
 
-# --- NOWOŚĆ: Paczka zróżnicowanych promptów do generowania różnych typów zdjęć ---
+# --- NOWOŚĆ: Prompty zmodyfikowane do pracy z obrazem referencyjnym ---
 PROMPT_TEMPLATES = {
     # 1. Czyste zdjęcie produktowe (packshot)
     "packshot": (
-        "Zadanie: Ulepsz to zdjęcie produktu e-commerce do perfekcyjnej jakości. "
-        "Popraw kąty, aby uzyskać profesjonalny, centralny widok. "
-        "Wzmocnij kolory i oświetlenie, zachowując naturalny wygląd produktu. "
-        "Umieść finalny, niezmieniony produkt na idealnie białym tle (#FFFFFF). "
+        "To jest obraz referencyjny dla stylu, koloru i ogólnego oświetlenia. "
+        "Twoim zadaniem jest zastosować ten sam spójny styl do drugiego, głównego obrazu produktu. "
+        "Ulepsz go do perfekcyjnej jakości e-commerce, poprawiając wszelkie niedoskonałości cieni i światła, "
+        "aby produkt był idealnie wyeksponowany i ostry. "
+        "Umieść finalny, niezmieniony produkt, którym jest **duży balon foliowy (100 cm)**, "
+        "na idealnie białym tle (#FFFFFF). "
         "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
 
     # 2. Zdjęcie studyjne z rekwizytami
     "studio_props": (
-        "Zadanie: Stwórz profesjonalne zdjęcie studyjne produktu: '{product_name}'. "
-        "Umieść go w otoczeniu tematycznych rekwizytów imprezowych (np. serpentyny, konfetti, prezenty). "
+        "To jest obraz referencyjny dla spójności koloru i stylu. Zastosuj go do drugiego, "
+        "głównego obrazu produktu. Stwórz profesjonalne zdjęcie studyjne produktu: '{product_name}'. "
+        "Umieść go w otoczeniu tematycznych rekwizytów imprezowych (np. serpentyny, konfetti, prezenty, balony w tle). "
         "Tło powinno być proste, w pastelowym kolorze, a oświetlenie studyjne, miękkie i komercyjne. "
-        "Kompozycja musi być estetyczna i nowoczesna. "
+        "Kompozycja musi być estetyczna i nowoczesna. Produkt to **duży balon foliowy (100 cm)**. "
         "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
 
     # 3. Główna scena lifestyle (dynamicznie dopasowywana)
     "lifestyle_scene": (
-        "Zadanie: Stwórz fotorealistyczne, dynamiczne zdjęcie lifestylowe. "
+        "To jest obraz referencyjny dla spójności koloru i stylu. Zastosuj go do drugiego, "
+        "głównego obrazu produktu. Stwórz fotorealistyczne, dynamiczne zdjęcie lifestylowe. "
         "Pokaż produkt '{product_name}' w użyciu podczas {style}. "
         "Na zdjęciu powinna być {audience}, naturalnie i radośnie bawiąca się, z produktem jako centralnym elementem. "
-        "Ważne: Rozmiar produktu musi być realistycznie dopasowany do wielkości postaci. "
+        "Ważne: Produkt to **duży balon foliowy (100 cm)** i jego rozmiar musi być realistycznie dopasowany do wielkości postaci. "
         "Estetyka: Scena powinna wyglądać jak z profesjonalnej sesji zdjęciowej. Użyj naturalnego, jasnego oświetlenia. "
         "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
     
     # 4. Zbliżenie na detal w użyciu
     "lifestyle_detail": (
-        "Zadanie: Stwórz artystyczne, zbliżeniowe zdjęcie lifestylowe produktu '{product_name}'. "
-        "Skup się na detalu produktu trzymanego przez osobę (widoczna tylko część dłoni/ramienia) z tłem '{style}' w miękkim rozmyciu (bokeh). "
+        "To jest obraz referencyjny dla spójności koloru i stylu. Zastosuj go do drugiego, "
+        "głównego obrazu produktu. Stwórz artystyczne, zbliżeniowe zdjęcie lifestylowe produktu '{product_name}'. "
+        "Skup się na detalu produktu (którym jest **duży balon foliowy 100 cm**) trzymanego przez osobę "
+        "(widoczna tylko część dłoni/ramienia) z tłem '{style}' w miękkim rozmyciu (bokeh). "
         "Oświetlenie powinno być naturalne i podkreślać teksturę produktu. "
         "Scena ma być aspiracyjna i estetyczna. {audience} jest tylko subtelnym tłem. "
         "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"

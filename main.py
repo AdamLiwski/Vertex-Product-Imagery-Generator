@@ -1,89 +1,91 @@
 # main.py
 import os
 import time
-import pandas as pd
 
-# Importujemy naszą zaktualizowaną konfigurację
-from src.config import (
-    GCP_LOCATION, IMAGE_MODEL_NAME, CSV_FILE_PATH,
-    OUTPUT_DIR, PROMPT_TEMPLATES, MAX_RETRIES, WAIT_TIME_SECONDS
-)
-# Importujemy nasze zaktualizowane funkcje pomocnicze
+from src.config import *
 from src.file_handler import load_data_from_csv, load_image_from_url
-from src.image_processor import setup_vertex_ai_client, prepare_prompt, generate_and_save_image
-
-# --- TRYB TESTOWY ---
-# Ustaw na True, aby przetworzyć tylko pierwszy wiersz z pliku CSV
-# Ustaw na False, aby przetworzyć cały plik
-TEST_MODE = True
+from src.image_processor import setup_vertex_ai_client, prepare_prompt, generate_image_with_reference
 
 def main():
-    """Główna funkcja orkiestrująca proces generowania ZESTAWU obrazów z pliku CSV."""
+    """Orkiestruje proces generowania spójnego kolorystycznie zestawu 40 obrazów."""
     
-    # Inicjalizacja klienta Vertex AI dla modelu generującego obrazy
     model = setup_vertex_ai_client(GCP_LOCATION, IMAGE_MODEL_NAME)
-    if not model:
-        print("Zakończono program z powodu błędu inicjalizacji.")
-        return
+    if not model: return
 
-    # Wczytanie danych z pliku CSV
     df = load_data_from_csv(CSV_FILE_PATH)
-    if df is None:
-        print("Zakończono program z powodu błędu odczytu pliku CSV.")
-        return
+    if df is None: return
 
-    # Utworzenie folderu wyjściowego, jeśli nie istnieje
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Decyzja, czy przetwarzamy cały plik, czy tylko próbkę
-    if TEST_MODE:
-        print("\n⚠️ URUCHOMIONO W TRYBIE TESTOWYM: Przetwarzanie tylko pierwszego produktu.")
-        processing_df = df.head(1)
-    else:
-        print(f"\n🚀 URUCHOMIONO W TRYBIE PRODUKCYJNYM: Przetwarzanie {len(df)} produktów.")
-        processing_df = df
+    # --- ETAP 0: Przygotowanie danych ---
+    print("\n[PRZYGOTOWANIE] Filtrowanie i sortowanie balonów-cyfr (0-9)...")
+    df_numbers = df[df['produkt_nazwa'].str.contains("Balon foliowy w kształcie cyfry", na=False)].copy()
+    df_numbers['digit'] = df_numbers['produkt_nazwa'].str.extract(r'cyfry (\d)').astype(int)
+    df_numbers = df_numbers.sort_values('digit').reset_index(drop=True)
 
-    # Główna pętla przetwarzająca produkty
-    for index, row in processing_df.iterrows():
-        sku = str(row.get('produkt_sku', f'produkt_{index}')).strip()
-        product_name = str(row.get('produkt_nazwa', 'Nieznany produkt')).strip()
-        image_url = str(row.get('zdjecie', '')).strip()
-
-        print(f"\n{'='*25} Przetwarzanie produktu: {product_name} (SKU: {sku}) {'='*25}")
-
-        if not image_url:
-            print("⚠️ Pominięto - brak adresu URL zdjęcia w pliku CSV.")
-            continue
+    if len(df_numbers) < 1:
+        print("❌ Nie znaleziono żadnych balonów-cyfr w pliku CSV.")
+        return
         
-        # Pobranie obrazu wejściowego z URL (robimy to raz na produkt)
-        input_image = load_image_from_url(image_url)
-        if not input_image:
-            print("⚠️ Pominięto cały produkt - nie udało się pobrać obrazu wejściowego.")
+    # --- ETAP 1: Stworzenie obrazu referencyjnego ("Złotego Standardu") ---
+    print("\n[ETAP 1] Tworzenie obrazu referencyjnego dla spójności kolorów...")
+    
+    ref_product = df_numbers.iloc[0]
+    ref_image_url = str(ref_product['zdjecie']).strip()
+    ref_input_image = load_image_from_url(ref_image_url)
+    
+    if not ref_input_image:
+        print("❌ Krytyczny błąd: Nie udało się pobrać obrazu dla produktu referencyjnego. Przerwano.")
+        return
+
+    # Używamy prostego promptu do stworzenia czystego packshota, który będzie wzorcem
+    ref_prompt = "Ulepsz to zdjęcie produktu do perfekcyjnej jakości e-commerce. Umieść go na idealnie białym tle (#FFFFFF). Zwróć tylko obraz."
+    ref_output_path = os.path.join(OUTPUT_DIR, f"{str(ref_product['produkt_sku']).strip()}_packshot.png")
+    
+    # Generujemy obraz referencyjny (używając tej samej funkcji, ale przekazując ten sam obraz jako referencję i produkt)
+    reference_image_part = generate_image_with_reference(model, ref_prompt, ref_input_image, ref_input_image, ref_output_path, MAX_RETRIES, WAIT_TIME_SECONDS)
+
+    if not reference_image_part:
+        print("❌ Krytyczny błąd: Nie udało się stworzyć obrazu referencyjnego. Przerwano.")
+        return
+
+    # --- ETAP 2: Główna pętla generująca wszystkie 40 obrazów ---
+    print(f"\n[ETAP 2] Rozpoczynanie generowania {len(df_numbers) * len(PROMPT_TEMPLATES)} obrazów...")
+
+    for index, row in df_numbers.iterrows():
+        sku = str(row['produkt_sku']).strip()
+        product_name = str(row['produkt_nazwa']).strip()
+        image_url = str(row['zdjecie']).strip()
+
+        print(f"\n--- Przetwarzanie produktu: {product_name} (SKU: {sku}) ---")
+        
+        product_input_image = load_image_from_url(image_url)
+        if not product_input_image:
+            print("  -> ⚠️ Pominięto - nie udało się wczytać obrazu produktu.")
             continue
 
-        # --- POPRAWKA: Używamy enumerate do numerowania plików wyjściowych ---
-        for i, (template_key, template_text) in enumerate(PROMPT_TEMPLATES.items()):
-            
-            # 1. Przygotowanie unikalnego promptu dla danego typu zdjęcia
-            prompt = prepare_prompt(template_text, product_name)
-            
-            # 2. Stworzenie unikalnej, numerowanej nazwy pliku wyjściowego
-            output_filename = f"{sku}_{i}.png"
+        for template_key, template_text in PROMPT_TEMPLATES.items():
+            # Jeśli przetwarzamy pierwszy produkt, jego packshot już stworzyliśmy jako referencję
+            if index == 0 and template_key == 'packshot':
+                print("  -> Pominięto 'packshot' dla produktu referencyjnego (już istnieje).")
+                continue
+
+            output_filename = f"{sku}_{template_key}.png"
             output_path = os.path.join(OUTPUT_DIR, output_filename)
             
-            # 3. Wygenerowanie i zapisanie obrazu
-            generate_and_save_image(
+            prompt = prepare_prompt(template_text, product_name, CHILDREN_KEYWORDS, ADULT_KEYWORDS)
+            
+            generate_image_with_reference(
                 model=model,
                 prompt=prompt,
-                input_image=input_image,
+                reference_image=reference_image_part,
+                product_image=product_input_image,
                 output_path=output_path,
                 max_retries=MAX_RETRIES,
                 wait_time=WAIT_TIME_SECONDS
             )
-            # Mała pauza, aby nie przeciążać API
-            print("   -> Krótka pauza...")
-            time.sleep(5) 
-            
+            time.sleep(5) # Krótka pauza między zadaniami dla stabilności
+
     print(f"\n{'='*30} ZAKOŃCZONO PRACĘ {'='*30}")
 
 if __name__ == "__main__":

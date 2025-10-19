@@ -17,6 +17,7 @@ __pycache__/
 # Te foldery nie powinny być częścią repozytorium kodu
 /input/
 /output/
+/input_csvs/
 
 # Pliki generowane przez edytory
 .vscode/
