@@ -10,6 +10,9 @@ service_account_key.json
 __pycache__/
 *.log
 
+#Pliki z danymi wejściowymi
+*.csv
+
 # Foldery z danymi użytkownika (wejście, wyjście, demo)
 # Te foldery nie powinny być częścią repozytorium kodu
 /input/

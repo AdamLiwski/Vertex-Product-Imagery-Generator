@@ -2,47 +2,61 @@
 
 # --- Konfiguracja Połączenia z Google Cloud ---
 GCP_LOCATION = "us-central1"
-# NOWOŚĆ: Definiujemy dwa osobne modele
-ANALYSIS_MODEL_NAME = "gemini-2.5-flash"      # Nasz "Analityk" do tekstu i JSON
-IMAGE_GENERATION_MODEL = "gemini-2.5-flash-image" # Nasz "Malarz" do obrazów
+# ZMIANA: Używamy dwóch najnowszych, wyspecjalizowanych modeli Flash
+TEXT_MODEL_NAME = "gemini-2.5-flash"  # Model do analizy i zadań tekstowych
+IMAGE_MODEL_NAME = "gemini-2.5-flash-image" # Model zoptymalizowany do generowania obrazów
 
 # --- Konfiguracja Procesu ---
-MAX_RETRIES = 5
-WAIT_TIME_SECONDS = 30
-INTER_TASK_DELAY = 10
+MAX_RETRIES = 3
+WAIT_TIME_SECONDS = 20
+# Usunęliśmy IMAGES_PER_PRODUCT, ponieważ teraz liczba zdjęć zależy od liczby promptów
 
 # --- Konfiguracja Ścieżek ---
-INPUT_DIR = "input"
-OUTPUT_DIR = "output"
+CSV_FILE_PATH = "lista zdjec do poprawienia csv.csv"
+OUTPUT_DIR = "output" # Folder na wygenerowane obrazy
 
-# --- Paczka Promptów ---
+# --- Słowa Kluczowe do Analizy Nazwy Produktu ---
+# Ta logika pozostaje, aby dynamicznie określać grupę docelową w promptach lifestyle
+KIDS_KEYWORDS = ["dziecka", "roczek", "chrzest", "urodziny chłopca", "urodziny dziewczynki", "baby shower", "dla dzieci"]
+ADULT_KEYWORDS = ["panieński", "kawalerski", "18-stka", "sylwester", "dla dorosłych", "wódki", "alkohol", "impreza firmowa"]
+
+# --- NOWOŚĆ: Paczka zróżnicowanych promptów do generowania różnych typów zdjęć ---
 PROMPT_TEMPLATES = {
-    "analysis": (
-        "Analyze the product in this image. Respond in JSON format with two keys: "
-        "'product_description' (a 3-5 word description, e.g., 'luxury men's Rolex watch') and "
-        "'suggested_style' (1-3 keywords for a photoshoot theme, e.g., 'elegant, luxurious, professional')."
+    # 1. Czyste zdjęcie produktowe (packshot)
+    "packshot": (
+        "Zadanie: Ulepsz to zdjęcie produktu e-commerce do perfekcyjnej jakości. "
+        "Popraw kąty, aby uzyskać profesjonalny, centralny widok. "
+        "Wzmocnij kolory i oświetlenie, zachowując naturalny wygląd produktu. "
+        "Umieść finalny, niezmieniony produkt na idealnie białym tle (#FFFFFF). "
+        "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
-    "enhancement": (
-        "Re-imagine this product photo to be of perfect e-commerce quality. "
-        "Correct any awkward angles to present a clear, professional front-facing view of the product. "
-        "Enhance colors and lighting. Place the final, unchanged product on a pure white background (#FFFFFF). "
-        "**Return only the image.**"
+
+    # 2. Zdjęcie studyjne z rekwizytami
+    "studio_props": (
+        "Zadanie: Stwórz profesjonalne zdjęcie studyjne produktu: '{product_name}'. "
+        "Umieść go w otoczeniu tematycznych rekwizytów imprezowych (np. serpentyny, konfetti, prezenty). "
+        "Tło powinno być proste, w pastelowym kolorze, a oświetlenie studyjne, miękkie i komercyjne. "
+        "Kompozycja musi być estetyczna i nowoczesna. "
+        "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
-    "studio_with_props": (
-        "Create a professional studio photograph of the '{product_description}'. "
-        "Place it on a simple, elegant prop suitable for this type of product (e.g., a stand for a watch, a pedestal for a sculpture, a stylish surface for electronics). "
-        "The background should be clean and minimalist. Use commercial studio lighting. "
-        "The style should be: {suggested_style}. **Return only the image.**"
+
+    # 3. Główna scena lifestyle (dynamicznie dopasowywana)
+    "lifestyle_scene": (
+        "Zadanie: Stwórz fotorealistyczne, dynamiczne zdjęcie lifestylowe. "
+        "Pokaż produkt '{product_name}' w użyciu podczas {style}. "
+        "Na zdjęciu powinna być {audience}, naturalnie i radośnie bawiąca się, z produktem jako centralnym elementem. "
+        "Ważne: Rozmiar produktu musi być realistycznie dopasowany do wielkości postaci. "
+        "Estetyka: Scena powinna wyglądać jak z profesjonalnej sesji zdjęciowej. Użyj naturalnego, jasnego oświetlenia. "
+        "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     ),
-    "lifestyle_in_use": (
-        "Create a realistic lifestyle photo showing the '{product_description}' in practical use. "
-        "A person appropriate for the product should be interacting with it naturally (e.g., a man wearing the watch, a person driving the car, a family watching the TV). "
-        "The setting should be authentic and match the style: {suggested_style}. **Return only the image.**"
-    ),
-    "lifestyle_alternative": (
-        "Create a second, different lifestyle photo of the '{product_description}'. "
-        "Showcase the product in a beautiful, aspirational setting that reflects the style: {suggested_style}. "
-        "The product should be the clear focus of the image. Use creative composition and natural lighting. "
-        "**Return only the image.**"
+    
+    # 4. Zbliżenie na detal w użyciu
+    "lifestyle_detail": (
+        "Zadanie: Stwórz artystyczne, zbliżeniowe zdjęcie lifestylowe produktu '{product_name}'. "
+        "Skup się na detalu produktu trzymanego przez osobę (widoczna tylko część dłoni/ramienia) z tłem '{style}' w miękkim rozmyciu (bokeh). "
+        "Oświetlenie powinno być naturalne i podkreślać teksturę produktu. "
+        "Scena ma być aspiracyjna i estetyczna. {audience} jest tylko subtelnym tłem. "
+        "**Zwróć tylko i wyłącznie sam obraz, bez żadnego tekstu.**"
     )
 }
+
