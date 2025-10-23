@@ -6,35 +6,22 @@ import pandas as pd
 
 from src.config import (
     GCP_LOCATION, ANALYSIS_MODEL_NAME, IMAGE_MODEL_NAME, CSV_FILE_PATH,
-    OUTPUT_DIR, PROMPT_TEMPLATES, MAX_RETRIES, 
-    WAIT_TIME_SECONDS, ADULT_KEYWORDS, SCHOOL_AGE_KEYWORDS, 
-    PRESCHOOLER_KEYWORDS, TODDLER_KEYWORDS
+    OUTPUT_DIR, PROMPT_TEMPLATES, MAX_RETRIES, WAIT_TIME_SECONDS
+    # Usunięto importy KEYWORDS
 )
 from src.file_handler import load_data_from_csv, load_image_from_url
 from src.image_processor import (
     setup_vertex_ai_client, run_product_analysis, generate_and_save_image
 )
 
-TEST_MODE = False
+TEST_MODE = True
 
-def determine_audience(product_name: str, suggested_theme: str) -> str:
-    """Określa grupę docelową na podstawie słów kluczowych i sugestii AI, z podziałem na grupy wiekowe."""
-    combined_text = (product_name + " " + suggested_theme).lower()
-
-    if any(keyword in combined_text for keyword in ADULT_KEYWORDS):
-        return "grupa dorosłych osób"
-    if any(keyword in combined_text for keyword in SCHOOL_AGE_KEYWORDS):
-        return "grupa dzieci w wieku szkolnym i nastolatków (8-15 lat)"
-    if any(keyword in combined_text for keyword in PRESCHOOLER_KEYWORDS):
-        return "grupa przedszkolaków (4-7 lat)"
-    if any(keyword in combined_text for keyword in TODDLER_KEYWORDS):
-        return "grupa małych dzieci (1-3 lata)"
-    
-    return "grupa bawiących się osób w różnym wieku"
+# --- USUNIĘTO FUNKCJĘ determine_audience ---
+# Logika została przeniesiona bezpośrednio do modelu analitycznego AI
 
 def apply_hard_rules(analysis_result: dict) -> dict:
-    """Stosuje twarde reguły i reaguje na dyrektywy z analizy AI."""
-    rules = {"size_info": "", "physics_info": "", "interaction_info": "", "quantity_info": ""}
+    """Stosuje twarde reguły (fizyka) i przekazuje opis skali z AI."""
+    rules = {"scale_description": "", "physics_info": "", "interaction_info": "", "quantity_info": ""}
     
     prod_type = analysis_result.get('product_type', '').lower()
     size_cm = analysis_result.get('detected_size_cm', 30)
@@ -42,21 +29,11 @@ def apply_hard_rules(analysis_result: dict) -> dict:
 
     rules["quantity_info"] = f"Pokaż DOKŁADNIE JEDEN (1) produkt." if quantity == 1 else f"Pokaż zestaw składający się z DOKŁADNIE {quantity} sztuk produktu."
     
-    # --- NOWA, VYLEPSZONA LOGIKA SKALI ---
-    size_prompt = f"KRYTYCZNE: Produkt to {prod_type} o szacowanym rozmiarze {size_cm} cm."
-    # Dodajemy wizualny punkt odniesienia w zależności od rozmiaru
-    if size_cm <= 15:
-        size_prompt += " Dla zachowania skali, jest on podobny wielkością do standardowego kubka do kawy."
-    elif 15 < size_cm <= 35:
-        size_prompt += " Dla zachowania skali, jest on podobny wielkością do małej poduszki dekoracyjnej."
-    elif 35 < size_cm <= 70:
-        size_prompt += " Dla zachowania skali, jest on podobny wielkością do standardowego krzesła."
-    else: # Powyżej 70 cm
-        size_prompt += " To duży obiekt, upewnij się, że jego skala względem otoczenia jest realistyczna."
-        
-    rules["size_info"] = size_prompt
-    # --- KONIEC NOWEJ LOGIKI ---
+    # Pobieramy opis skali prosto z AI
+    default_scale_desc = f"Produkt ma rozmiar {size_cm} cm."
+    rules["scale_description"] = analysis_result.get('scale_description', default_scale_desc)
 
+    # Reguły fizyki
     if 'balon foliowy' in prod_type and size_cm < 45:
         rules["physics_info"] = "Fizyka: Ten balon jest za mały, by unosić się na helu. Musi być pokazany na patyczku lub jako część leżącej dekoracji."
     elif 'balon lateksowy' in prod_type and size_cm < 26:
@@ -102,8 +79,18 @@ def main():
         print(f"✅ Wynik analizy AI: {analysis_result}")
 
         hard_rules = apply_hard_rules(analysis_result)
-        audience = determine_audience(product_name, analysis_result.get('suggested_theme', ''))
-        prompt_data = {"suggested_theme": analysis_result.get('suggested_theme', ''), "audience": audience, **hard_rules}
+        
+        # --- NOWA LOGIKA PRZYGOTOWANIA DANYCH DO PROMPTU ---
+        # Pobieramy dane bezpośrednio z wyniku analizy AI
+        suggested_theme = analysis_result.get('suggested_theme', 'impreza')
+        suggested_audience = analysis_result.get('suggested_audience', 'ludzie') # Pobieramy nową daną
+        
+        prompt_data = {
+            "suggested_theme": suggested_theme,
+            "suggested_audience": suggested_audience, # Używamy nowej zmiennej
+            **hard_rules
+        }
+        # --- KONIEC NOWEJ LOGIKI ---
 
         for i, (template_key, template_text) in enumerate(PROMPT_TEMPLATES.items()):
             final_prompt = template_text.format(**prompt_data)
